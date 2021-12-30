@@ -3,7 +3,7 @@
 using AdaptiveWindow
 using Test
 
-ad = AdWin(0.001)
+ad = AdaptiveMean(0.001)
 
 # This should not trigger a truncated window
 fit!(ad, randn(10_000))

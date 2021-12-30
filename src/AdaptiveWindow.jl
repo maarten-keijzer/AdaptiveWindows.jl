@@ -3,10 +3,10 @@ module AdaptiveWindow
 import StatsBase: nobs, fit!, merge!
 import OnlineStatsBase: value, OnlineStat, Variance, Mean, _fit!
 
-export AdWin, fit!, mean, value, nobs, stats
+export AdaptiveMean, fit!, mean, value, nobs, stats
 
 #=
- Adaptive Windowing version 2 (AdWin2)
+ Adaptive Windowing version 2 (AdaptiveMean2)
 
     Used to track the mean value of a stream of data with a possibly changing population
 
@@ -16,7 +16,7 @@ export AdWin, fit!, mean, value, nobs, stats
 #   Bifet and Gavalda: We use, somewhat arbitrarily, M = 5 for all experiments.
     const M = 5
 
-    mutable struct AdWin <: OnlineStat{Number}
+    mutable struct AdaptiveMean <: OnlineStat{Number}
         
         δ ::Float64
         window::Array{Variance, 1}
@@ -25,13 +25,13 @@ export AdWin, fit!, mean, value, nobs, stats
         n::Int
         update_interval::Int64
     
-        AdWin(δ, window, stats; update_interval = 1) = new(δ, window, stats, 0, update_interval)
-        AdWin(δ; update_interval = 1) = new(δ, fill(Variance(), M), Variance(), 0, update_interval)
-        AdWin(;update_interval = 1) = AdWin(0.001, update_interval = update_interval)
+        AdaptiveMean(δ, window, stats; update_interval = 1) = new(δ, window, stats, 0, update_interval)
+        AdaptiveMean(δ; update_interval = 1) = new(δ, fill(Variance(), M), Variance(), 0, update_interval)
+        AdaptiveMean(;update_interval = 1) = AdaptiveMean(0.001, update_interval = update_interval)
     
     end
     
-    function _fit!(ad::AdWin, value)
+    function _fit!(ad::AdaptiveMean, value)
         ad.n += 1
         fit!(ad.window[1], value)
         fit!(ad.stats, value)
@@ -45,21 +45,21 @@ export AdWin, fit!, mean, value, nobs, stats
         end    
     end
 
-    stats(ad::AdWin) = ad.stats
+    stats(ad::AdaptiveMean) = ad.stats
 
-    function mean(ad::AdWin)
+    function mean(ad::AdaptiveMean)
         ad.stats.μ
     end
 
-    function value(ad::AdWin)
+    function value(ad::AdaptiveMean)
         mean(ad)
     end
                 
-    function compress!(ad::AdWin)
+    function compress!(ad::AdaptiveMean)
         makespace!(ad, 1, 1.0);
     end
     
-    function makespace!(ad::AdWin, start::Int, max::Float64)
+    function makespace!(ad::AdaptiveMean, start::Int, max::Float64)
     #=
         The window is a gappy list of data points, this avoids allocations and reallocations 
         when the window resizes
@@ -121,7 +121,7 @@ export AdWin, fit!, mean, value, nobs, stats
         merge!(m, tomean(v))
     end
 
-    function dropifdrifting!(ad::AdWin)
+    function dropifdrifting!(ad::AdaptiveMean)
     
         statsToRight = tomean(ad.stats)
         statsToLeft = Mean()
