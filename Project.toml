@@ -1,0 +1,11 @@
+name = "AdaptiveWindow"
+uuid = "b4650268-a46b-4d1d-a2e5-c2e6eae1d88c"
+authors = ["Maarten Keijzer <maarten@h2i.sg>"]
+version = "0.1.0"
+
+[deps]
+OnlineStatsBase = "925886fa-5bf2-5e8e-b522-a9147a512338"
+
+[compat]
+julia = "1.6.1"
+
