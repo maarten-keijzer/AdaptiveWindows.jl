@@ -25,13 +25,7 @@ println(nobs(m))
 prinln("The mean: $(value(m)) should be close to 1.0")
 
 ```
-The package uses the interface from OnlineStatsBase. The 'nobs' measurement returns the 
-number of observations underlying the current mean value. Values might have dropped out of the
-adaptive window.
-
-The fit! method returns the statistic itself. In some cases, when you want to detect windows being dropped. To 
-
-the update! routine does the work and returns True if values are dropped.
+The package uses the interface from OnlineStatsBase. The 'nobs' measurement returns the number of observations underlying the current mean value. Values might have dropped out of the adaptive window, so nobs is not necessarily equal to the number of times fit! is called.
 
 In the following example, the adaptive window should detect the shift in distribution about 50 observations after the 500th one. If you want the mean to be more sensitive increase the probability of detecting shift (delta). Note that this will lead more often to false positives
 
