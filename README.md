@@ -13,7 +13,7 @@ The algorithm perform a statistical test using Hoeffding bounds on every splitpo
 # Example
 
 ```julia
-using AdaptiveWindow
+using AdaptiveWindows
 
 m = AdaptiveMean(δ = 0.001) 
 
@@ -38,7 +38,7 @@ The package uses the interface from OnlineStatsBase. The 'nobs' measurement retu
 In the following example, the adaptive window should detect the shift in distribution about 50 observations after the 500th one. If you want the mean to be more sensitive increase the probability of detecting shift (delta). Note that this will lead more often to false positives.
 
 ```julia
-using AdaptiveWindow
+using AdaptiveWindows
 
 m = AdaptiveMean(onshiftdetected = ad -> println("Shift detected!"))
 
