@@ -1,4 +1,4 @@
-# AdaptiveWindow.jl
+# AdaptiveWindows.jl
 Adaptive window implementation (ADWIN2: Bifet &amp; Gavalda) 
 
 The adaptive windowing algorithm works by maintaining a set of buckets (the window) with Variance() objects in each of these. Each group of buckets has a maximum capacity for the number of observations it holds. A constant M is used to define the size of the group. In the package, M is hardcoded to be equal to 5, but M=3 will be used below.

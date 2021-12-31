@@ -1,4 +1,4 @@
-module AdaptiveWindow
+module AdaptiveWindows
 
 export AdaptiveMean, fit!, mean, value, nobs, stats, withoutdropping
 

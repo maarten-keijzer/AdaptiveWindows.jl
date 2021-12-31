@@ -1,5 +1,5 @@
 
-using AdaptiveWindow
+using AdaptiveWindows
 using Test
 
 @testset "Mean Computation" begin
@@ -50,5 +50,5 @@ end
     # Run without dropping observations -- for speed
     fit!(withoutdropping(m), randn(n))
 
-    @test length(m.window) < AdaptiveWindow.M * log2(n)
+    @test length(m.window) < AdaptiveWindows.M * log2(n)
 end

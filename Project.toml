@@ -1,4 +1,4 @@
-name = "AdaptiveWindow"
+name = "AdaptiveWindows"
 uuid = "b4650268-a46b-4d1d-a2e5-c2e6eae1d88c"
 authors = ["Maarten Keijzer <maarten.keijzer@gmail.com>"]
 version = "0.1.1"
