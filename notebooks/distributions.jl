@@ -16,7 +16,7 @@ end
 
 # ╔═╡ 47278b8c-c601-4fdf-a687-06349db8f9aa
 begin
-	m1 = AdaptiveMean(0.001)
+	m1 = AdaptiveMean(δ = 0.001)
 	m2 = Mean()
 	m3 = Mean(weight=ExponentialWeight(.01))
 	means1 = []
