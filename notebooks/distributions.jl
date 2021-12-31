@@ -5,12 +5,12 @@ using Markdown
 using InteractiveUtils
 
 # ╔═╡ 2a4e15a3-9b6c-42ce-9555-6a2e51d421e5
-import Pkg; Pkg.add(url="https://github.com/maarten-keijzer/AdaptiveWindow.jl")
+import Pkg; Pkg.add(url="https://github.com/maarten-keijzer/AdaptiveWindows.jl")
 
 # ╔═╡ d22707fc-6a27-11ec-3e85-772cedeb1c06
 begin
 	using OnlineStats
-	using AdaptiveWindow
+	using AdaptiveWindows
 	using Plots
 end
 
