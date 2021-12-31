@@ -1,6 +1,14 @@
 # AdaptiveWindow.jl
 Adaptive window implementation (ADWIN2: Bifet &amp; Gavalda) 
 
+The adaptive windowing algorithm works by maintaining a set of buckets (the window) with Variance() objects in each of these. Each group of buckets has a maximum capacity for the number of observations it holds. A constant M is used to define the size of the group. In the package, M is hardcoded to be equal to 5, but M=3 will be used below.
+
+The content of the window is exponentially increasing, with the first group of buckets containing at most 1 observation, the next group 2, then 4, etc.:
+
+1 1 1 2 2 2 4 4 4 8 8 8 16 16 16 32 32 32 ...
+
+The algorithm perform a statistical test using Hoeffding bounds on every splitpoint between these buckets, using the accumulated means and variances. If the front of the window is considered to have a statistically different mean than the back of the window, the observations at the back are removed, and a 'drift' is detected. 
+
 
 # Example
 
