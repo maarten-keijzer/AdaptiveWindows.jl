@@ -1,50 +1,49 @@
 module AdaptiveWindow
 
+export AdaptiveMean, fit!, mean, value, nobs, stats, withoutdropping
+
 import StatsBase: nobs, fit!, merge!
 import OnlineStatsBase: value, OnlineStat, Variance, Mean, _fit!
-
-export AdaptiveMean, fit!, mean, value, nobs, stats
 
 #=
  Adaptive Windowing version 2 (AdaptiveMean2)
 
-    Used to track the mean value of a stream of data with a possibly changing population
+    Used to track the mean value of a stream of data with a possibly changing population.
+    If the population is determined to be changed, older observations will be dropped
 
   Bifet and Gavalda. Learning from Time-Changing Data with Adaptive Windowing
 =#
 
-#   Bifet and Gavalda: We use, somewhat arbitrarily, M = 5 for all experiments.
+    # Bifet and Gavalda: We use, somewhat arbitrarily, M = 5 for all experiments.
     const M = 5
+
+    default_detect(ad) = nothing
 
     mutable struct AdaptiveMean <: OnlineStat{Number}
         
         δ ::Float64
         window::Array{Variance, 1}
         stats ::Variance
-    
-        n::Int
-        update_interval::Int64
-    
-        AdaptiveMean(δ, window, stats; update_interval = 1) = new(δ, window, stats, 0, update_interval)
-        AdaptiveMean(δ; update_interval = 1) = new(δ, fill(Variance(), M), Variance(), 0, update_interval)
-        AdaptiveMean(;update_interval = 1) = AdaptiveMean(0.001, update_interval = update_interval)
+        
+        onshiftdetect
+
+        AdaptiveMean(δ::Float64; onshiftdetected = default_detect) = new(δ, fill(Variance(), M), Variance(), onshiftdetected)
+        AdaptiveMean() = AdaptiveMean(0.001)
     
     end
-    
+
     function _fit!(ad::AdaptiveMean, value)
-        ad.n += 1
         fit!(ad.window[1], value)
         fit!(ad.stats, value)
     
         compress!(ad)
-    
-        if nobs(ad.stats) % ad.update_interval == 0
-            dropifdrifting!(ad);
-        else
-            false
-        end    
+        if dropifdrifting!(ad)
+            ad.onshiftdetect(ad)
+        end
+        ad
     end
 
+    nobs(ad::AdaptiveMean) = ad.stats.n
     stats(ad::AdaptiveMean) = ad.stats
 
     function mean(ad::AdaptiveMean)
@@ -165,5 +164,22 @@ export AdaptiveMean, fit!, mean, value, nobs, stats
         return false
     end
     
+
+    struct Wrapper <: OnlineStat{Number}
+        ad::AdaptiveMean
+    end
+
+    withoutdropping(ad::AdaptiveMean) = Wrapper(ad)
+
+    function _fit!(wrap::Wrapper, value)
+        ad = wrap.ad 
+        fit!(ad.window[1], value)
+        fit!(ad.stats, value)
+    
+        compress!(ad)   
+        wrap
+    end
+
+    nobs(wrap::Wrapper) = nobs(wrap.ad)
 
 end # module
