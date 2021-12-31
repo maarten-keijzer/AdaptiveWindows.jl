@@ -15,7 +15,7 @@ The algorithm perform a statistical test using Hoeffding bounds on every splitpo
 ```julia
 using AdaptiveWindow
 
-m = AdaptiveMean(0.001) 
+m = AdaptiveMean(δ = 0.001) 
 
 fit!(m, randn(1_000))
 
@@ -40,7 +40,7 @@ In the following example, the adaptive window should detect the shift in distrib
 ```julia
 using AdaptiveWindow
 
-m = AdaptiveMean(0.001, ad -> println("Shift detected!"))
+m = AdaptiveMean(onshiftdetected = ad -> println("Shift detected!"))
 
 for i in 1:1_000
     r = randn()

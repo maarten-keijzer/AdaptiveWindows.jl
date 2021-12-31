@@ -3,7 +3,7 @@ using AdaptiveWindow
 using Test
 
 @testset "Mean Computation" begin
-    m = AdaptiveMean(1e-9)
+    m = AdaptiveMean(δ = 1e-9)
 
     r = randn(1000)
 
@@ -17,7 +17,7 @@ using Test
 end
 
 @testset "Distribution Shift" begin
-    ad = AdaptiveMean(0.001)
+    ad = AdaptiveMean()
 
     # This should not trigger a truncated window
     fit!(ad, randn(10_000))
@@ -30,7 +30,7 @@ end
     # check truncation of shifting using the callback function
     shifted = false
 
-    m = AdaptiveMean(0.001, onshiftdetected = ad -> shifted = true)
+    m = AdaptiveMean(onshiftdetected = ad -> shifted = true)
 
     for i in 1:1_000
         r = randn()
@@ -45,7 +45,7 @@ end
 
 @testset "Memory Usage" begin
     m = AdaptiveMean()
-    n = 100_000
+    n = 1_000_000
 
     # Run without dropping observations -- for speed
     fit!(withoutdropping(m), randn(n))

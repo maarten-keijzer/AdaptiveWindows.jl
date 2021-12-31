@@ -27,9 +27,7 @@ import OnlineStatsBase: value, OnlineStat, Variance, Mean, _fit!
         
         onshiftdetect
 
-        AdaptiveMean(δ::Float64; onshiftdetected = default_detect) = new(δ, fill(Variance(), M), Variance(), onshiftdetected)
-        AdaptiveMean() = AdaptiveMean(0.001)
-    
+        AdaptiveMean(;δ = 0.001, onshiftdetected = default_detect) = new(δ, fill(Variance(), M), Variance(), onshiftdetected)    
     end
 
     function _fit!(ad::AdaptiveMean, value)
