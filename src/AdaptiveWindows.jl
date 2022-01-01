@@ -168,13 +168,13 @@ import OnlineStatsBase: value, OnlineStat, Variance, Mean, _fit!
     end
     
 
-    struct Wrapper <: OnlineStat{Number}
+    struct _Wrapper <: OnlineStat{Number}
         ad::AdaptiveMean
     end
 
-    withoutdropping(ad::AdaptiveMean) = Wrapper(ad)
+    withoutdropping(ad::AdaptiveMean) = _Wrapper(ad)
 
-    function _fit!(wrap::Wrapper, value)
+    function _fit!(wrap::_Wrapper, value)
         ad = wrap.ad 
         fit!(ad.window[1], value)
         fit!(ad.stats, value)
@@ -183,6 +183,6 @@ import OnlineStatsBase: value, OnlineStat, Variance, Mean, _fit!
         wrap
     end
 
-    nobs(wrap::Wrapper) = nobs(wrap.ad)
+    nobs(wrap::_Wrapper) = nobs(wrap.ad)
 
 end # module
