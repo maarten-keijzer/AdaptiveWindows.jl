@@ -43,12 +43,45 @@ end
     @test shifted
 end
 
-@testset "Memory Usage" begin
-    m = AdaptiveMean()
-    n = 1_000_000
-
-    # Run without dropping observations -- for speed
-    fit!(withoutdropping(m), randn(n))
-
-    @test length(m.window) < AdaptiveWindows.M * log2(n)
+function assertconsistent(ad)
+    total = sum(nobs(v) for v in ad.window)
+    @test total == nobs(ad.stats)
 end
+
+@testset "Memory Management" begin
+
+    m = AdaptiveMean()
+    fit!(m, 1)
+    @test nobs(m.window[1]) == 0
+    @test nobs(m.window[2]) == 1
+    @test nobs(m.window[3]) == 0
+    fit!(m, 1)
+    @test nobs(m.window[1]) == 0
+    @test nobs(m.window[2]) == 1
+    @test nobs(m.window[3]) == 1
+    fit!(m, 1)
+    fit!(m, 1)
+    fit!(m, 1)
+    fit!(m, 1)
+    fit!(m, 1)
+    assertconsistent(m)
+   
+    m = AdaptiveMean()
+    n = AdaptiveWindows.M * ( 1 + 2 + 4)
+    fit!(m, ones(n))
+
+    @test length(m.window) <= AdaptiveWindows.M * log2(n)
+    @test nobs(m) == n 
+    assertconsistent(m)
+
+    m = AdaptiveMean()
+    n = 10_000
+
+    # withoutdropping for speed
+    fit!(withoutdropping(m), ones(n))
+    @test length(m.window) <= AdaptiveWindows.M * log2(n)
+    @test nobs(m) == n 
+    assertconsistent(m)
+
+end
+ 

@@ -17,17 +17,15 @@ import OnlineStatsBase: value, OnlineStat, Variance, Mean, _fit!
     # Bifet and Gavalda: We use, somewhat arbitrarily, M = 5 for all experiments.
     const M = 5
 
-    default_detect(ad) = nothing
-
     mutable struct AdaptiveMean <: OnlineStat{Number}
         
         δ ::Float64
-        window::Array{Variance, 1}
+        window::Vector{Variance}
         stats ::Variance
         
         onshiftdetect
 
-        AdaptiveMean(;δ = 0.001, onshiftdetected = default_detect) = new(δ, fill(Variance(), M), Variance(), onshiftdetected)    
+        AdaptiveMean(;δ = 0.001, onshiftdetected = identity) = new(δ, [Variance() for _ in 1:M], Variance(), onshiftdetected)    
     end
 
     function _fit!(ad::AdaptiveMean, value)
@@ -56,6 +54,13 @@ import OnlineStatsBase: value, OnlineStat, Variance, Mean, _fit!
         makespace!(ad, 1, 1.0);
     end
     
+    function print_trace(m)
+        for v in m.window
+            print(nobs(v), " ")
+        end
+        println("stats: ", nobs(m.stats))
+    end    
+
     function makespace!(ad::AdaptiveMean, start::Int, max::Float64)
     #=
         The window is a gappy list of data points, this avoids allocations and reallocations 
@@ -78,14 +83,14 @@ import OnlineStatsBase: value, OnlineStat, Variance, Mean, _fit!
             return
         end
     
-        # Move-to-front: [a, b, c] -> [c, a, b]
-        lastEntryInRange = start + M - 1;
-        lastStats = ad.window[lastEntryInRange];
-        for j in lastEntryInRange:-1:start+1
+        # Move-to-front: [a, b, c, d] -> [d, a, b, c]
+        last_entry_in_range = start - 1 + M;
+        laststats = ad.window[last_entry_in_range];
+        for j in last_entry_in_range:-1:start+1
             ad.window[j] = ad.window[j-1];
         end
-        ad.window[start] = lastStats
-    
+        ad.window[start] = laststats
+
         if nobs(ad.window[start]) != 0
             next = start + M
             if length(ad.window) < next
@@ -94,7 +99,7 @@ import OnlineStatsBase: value, OnlineStat, Variance, Mean, _fit!
                 end
             end
     
-            merge!(ad.window[next], lastStats)
+            merge!(ad.window[next], laststats)
             ad.window[start] = Variance()
             makespace!(ad, next, max*2)
         end

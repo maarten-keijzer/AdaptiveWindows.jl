@@ -3,7 +3,7 @@ Adaptive window implementation (ADWIN2: Bifet &amp; Gavalda)
 
 *Bifet, Albert & Gavaldà, Ricard. (2007). Learning from Time-Changing Data with Adaptive Windowing. Proceedings of the 7th SIAM International Conference on Data Mining. 7. 10.1137/1.9781611972771.42.*
 
-Abstract
+Abstract (abbreviated)
 
 > We present a new approach for dealing with distribution
 > change and concept drift when learning from data sequences
