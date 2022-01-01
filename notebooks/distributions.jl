@@ -27,6 +27,7 @@ begin
 		fit!(m1, v)
 		fit!(m2, v)
 		fit!(m3, v)
+		
 		push!(means1, value(m1))
 		push!(means2, value(m2))
 		push!(means3, value(m3))
