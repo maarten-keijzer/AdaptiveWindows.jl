@@ -21,7 +21,7 @@ fit!(m, randn(1_000))
 
 println(nobs(m)) # we should see that the stats are computed over 1_000 data points
 
-prinln("The mean: $(value(m)) should be close to 0.0")
+println("The mean: $(value(m)) should be close to 0.0")
 
 # change the distribution
 fit!(m, randn(1_000) .+ 1) 
@@ -30,7 +30,7 @@ fit!(m, randn(1_000) .+ 1)
 println(nobs(m)) 
 
 # mean should be close to 1.0 (not 0.5 if we did a mean over all 2_000 points)
-prinln("The mean: $(value(m)) should be close to 1.0")
+println("The mean: $(value(m)) should be close to 1.0")
 
 ```
 The package uses the interface from OnlineStatsBase. The 'nobs' measurement returns the number of observations underlying the current mean value. Values might have dropped out of the adaptive window, so nobs is not necessarily equal to the number of times fit! is called.

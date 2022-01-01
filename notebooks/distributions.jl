@@ -11,7 +11,7 @@ import Pkg; Pkg.add(url="https://github.com/maarten-keijzer/AdaptiveWindows.jl")
 begin
 	using OnlineStats
 	using AdaptiveWindows
-	using Plots
+	using Plots 
 end
 
 # ╔═╡ 47278b8c-c601-4fdf-a687-06349db8f9aa
