@@ -1,7 +1,7 @@
 name = "AdaptiveWindows"
 uuid = "310fb2ca-6a3f-11ec-0326-3f7b497a96a3"
 authors = ["Maarten Keijzer <maarten.keijzer@gmail.com>"]
-version = "0.1.1"
+version = "0.1.2"
 
 [deps]
 OnlineStatsBase = "925886fa-5bf2-5e8e-b522-a9147a512338"

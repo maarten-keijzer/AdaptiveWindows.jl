@@ -4,7 +4,7 @@ using Test
 
 @testset verbose=true "Adaptive Mean" begin
 
-    @testset "Mean Computation" begin
+    @testset "Mean Computation " begin
         m = AdaptiveMean(δ = 1e-9)
 
         r = randn(1000)
@@ -15,10 +15,6 @@ using Test
         m2 = value(m)
 
         @test m1 ≈ m2
-
-    end
-
-    @testset "Distribution Shift" begin
         ad = AdaptiveMean()
 
         # This should not trigger a truncated window
