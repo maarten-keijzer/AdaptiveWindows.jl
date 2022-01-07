@@ -1,6 +1,6 @@
 module AdaptiveWindows
 
-export AdaptiveMean, fit!, mean, value, nobs, stats, withoutdropping
+export AdaptiveMean, fit!, value, mean, nobs, stats, withoutdropping
 
 import StatsBase: nobs, fit!, merge!
 import OnlineStatsBase: value, OnlineStat, Variance, Mean, _fit!
@@ -17,7 +17,15 @@ import OnlineStatsBase: value, OnlineStat, Variance, Mean, _fit!
     # Bifet and Gavalda: We use, somewhat arbitrarily, M = 5 for all experiments.
     const M = 5
 
-    mutable struct AdaptiveMean <: OnlineStat{Number}
+    abstract type AdaptiveBase <: OnlineStat{Number} end
+
+    """
+        Tracks an "adaptive" mean by keeping a vector of variance objects of exponentially
+        increating number of observations, performing a test based on Hoeffding bounds that 
+        assesses if older events are drawn from a different distribution than new events,
+        i.e., did the distribution shift?
+    """
+    mutable struct AdaptiveMean <: AdaptiveBase
         
         δ ::Float64
         window::Vector{Variance}
@@ -123,6 +131,24 @@ import OnlineStatsBase: value, OnlineStat, Variance, Mean, _fit!
         merge!(m, tomean(v))
     end
 
+    function remove!(vs1::Variance, vs2::Variance) :: Variance
+        if vs1.mean.n == vs2.mean.n
+            return Variance();
+        elseif vs2.mean.n == 0
+            return vs1
+        elseif vs1.mean.n < vs2.mean.n
+            throw(ArgumentError("Removing too much"))
+        else
+            newmean = vs1.mean - vs2.mean
+            newn = newmean.n
+            delta = vs2.mean.mean - vs1.mean.mean;
+            deltasquare = delta * delta;
+            newsumsquared = vs1.sumsquared - vs2.sumsquared - deltasquare / newn * ( vs1.mean.n * vs2.mean.n);
+    
+            return Variance(newmean, newsumsquared)
+        end
+    end
+
     function dropifdrifting!(ad::AdaptiveMean)
     
         statsToRight = tomean(ad.stats)
@@ -168,21 +194,27 @@ import OnlineStatsBase: value, OnlineStat, Variance, Mean, _fit!
     end
     
 
-    struct _Wrapper <: OnlineStat{Number}
-        ad::AdaptiveMean
+    struct NoDropWrapper <: AdaptiveBase
+        ad::AdaptiveBase
     end
 
-    withoutdropping(ad::AdaptiveMean) = _Wrapper(ad)
+    """
+        Creates a variant of an AdaptiveMean that updates (fit!) an AdaptiveMean and prevents
+        statistical tests being performed while updating the data to improve performance of fit!. 
+    """
+    withoutdropping(ad::AdaptiveBase) = NoDropWrapper(ad)
 
-    function _fit!(wrap::_Wrapper, value)
+    function _fit!(wrap::NoDropWrapper, value)
         ad = wrap.ad 
         fit!(ad.window[1], value)
         fit!(ad.stats, value)
-    
+        
         compress!(ad)   
         wrap
     end
 
-    nobs(wrap::_Wrapper) = nobs(wrap.ad)
+    for fun in (:nobs, :value, :stats, :mean)
+        @eval ($fun)(x::NoDropWrapper, args...) = ($fun(x.ad, args...))
+    end
 
 end # module
