@@ -131,24 +131,6 @@ import OnlineStatsBase: value, OnlineStat, Variance, Mean, _fit!
         merge!(m, tomean(v))
     end
 
-    function remove!(vs1::Variance, vs2::Variance) :: Variance
-        if vs1.mean.n == vs2.mean.n
-            return Variance();
-        elseif vs2.mean.n == 0
-            return vs1
-        elseif vs1.mean.n < vs2.mean.n
-            throw(ArgumentError("Removing too much"))
-        else
-            newmean = vs1.mean - vs2.mean
-            newn = newmean.n
-            delta = vs2.mean.mean - vs1.mean.mean;
-            deltasquare = delta * delta;
-            newsumsquared = vs1.sumsquared - vs2.sumsquared - deltasquare / newn * ( vs1.mean.n * vs2.mean.n);
-    
-            return Variance(newmean, newsumsquared)
-        end
-    end
-
     function dropifdrifting!(ad::AdaptiveMean)
     
         statsToRight = tomean(ad.stats)
