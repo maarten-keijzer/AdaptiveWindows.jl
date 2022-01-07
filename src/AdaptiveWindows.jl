@@ -200,7 +200,7 @@ import OnlineStatsBase: value, OnlineStat, Variance, Mean, _fit!
 
     """
         Creates a variant of an AdaptiveMean that updates (fit!) an AdaptiveMean and prevents
-        statistical tests being performed while updating the data to improve performance of fit!. 
+        statistical tests being performed while updating the data to improve performance. 
     """
     withoutdropping(ad::AdaptiveBase) = NoDropWrapper(ad)
 
