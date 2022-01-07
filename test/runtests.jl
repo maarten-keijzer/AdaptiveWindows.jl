@@ -72,13 +72,17 @@ using Test
         @test nobs(m) == n 
         @test consistent(m)
 
-        m = AdaptiveMean()
-        n = 10_000
+        mn = AdaptiveMean()
+        n = 1<<12
 
         # withoutdropping for speed
-        fit!(withoutdropping(m), ones(n))
-        @test length(m.window) <= AdaptiveWindows.M * log2(n)
-        @test nobs(m) == n 
-        @test consistent(m)
+        fit!(withoutdropping(mn), ones(n))
+        m = AdaptiveWindows.M 
+        expected = m * ceil(log2(n) - log2(m))
+        @test length(mn.window) == expected
+        @test nobs(mn) == n 
+        @test consistent(mn)
+        
     end
 end
+
