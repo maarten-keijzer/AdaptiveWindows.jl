@@ -1,6 +1,6 @@
 module AdaptiveWindows
 
-export AdaptiveMean, fit!, value, mean, nobs, stats, withoutdropping
+export AdaptiveMean, fit!, value, mean, nobs, stats, withoutdropping, withmaxlength
 
 import StatsBase: nobs, fit!, merge!
 import OnlineStatsBase: value, OnlineStat, Variance, Mean, _fit!
@@ -147,9 +147,6 @@ import OnlineStatsBase: value, OnlineStat, Variance, Mean, _fit!
     
             _remove!(statsToRight, ad.window[i])
             _merge!(statsToLeft, ad.window[i])
-
-            #statsToRight -= toMean(ad.window[i]);
-            #statsToLeft  += toMean(ad.window[i]);
     
             if statsToRight.n < 1e-9
                 break # only zeros from this point on
@@ -175,7 +172,6 @@ import OnlineStatsBase: value, OnlineStat, Variance, Mean, _fit!
         return false
     end
     
-
     struct NoDropWrapper <: AdaptiveBase
         ad::AdaptiveBase
     end
@@ -199,4 +195,30 @@ import OnlineStatsBase: value, OnlineStat, Variance, Mean, _fit!
         @eval ($fun)(x::NoDropWrapper, args...) = ($fun(x.ad, args...))
     end
 
+    struct MaxLength <: AdaptiveBase
+        ad::AdaptiveBase
+        maxlength::Int 
+    end
+
+    withmaxlength(ad::AdaptiveBase, maxlength) = MaxLength(ad, maxlength * M)
+
+    function _fit!(wrap::MaxLength, value)
+        _fit!(wrap.ad, value)
+        if length(wrap.ad.window) > wrap.maxlength
+            while length(wrap.ad.window) > wrap.maxlength
+                pop!(wrap.ad.window)
+            end
+            wrap.ad.stats = Variance()
+            for var in wrap.ad.window
+                merge!(wrap.ad.stats, var)
+            end
+        end
+    end
+
+    for fun in (:nobs, :value, :stats, :mean)
+        @eval ($fun)(x::MaxLength, args...) = ($fun(x.ad, args...))
+    end
+
+
 end # module
+

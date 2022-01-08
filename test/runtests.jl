@@ -83,6 +83,13 @@ using Test
         @test nobs(mn) == n 
         @test consistent(mn)
         
+        # Maximum amount of memory
+        mn = withmaxlength(AdaptiveMean(), 3)
+        fit!(mn, rand(10000))
+        @test length(mn.ad.window) == AdaptiveWindows.M * 3
+        @test consistent(mn.ad)
+        
+
     end
 end
 
