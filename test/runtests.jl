@@ -28,7 +28,7 @@ using Test
         # check truncation of shifting using the callback function
         shifted = false
 
-        m = AdaptiveMean(onshiftdetected = ad -> shifted = true)
+        m = AdaptiveMean(onshiftdetected = (ad, idx) -> shifted = true)
 
         for i in 1:1_000
             r = randn()
@@ -93,3 +93,35 @@ using Test
     end
 end
 
+@testset verbose=true "Adaptive Multinomial" begin
+    m = AdaptiveMultinomial(3)
+    fit!(m, 1)
+    @test nobs(m) == 1
+    fit!(m, 2)
+    @test nobs(m) == 2
+    fit!(m, 3)
+    @test nobs(m) == 3
+    fit!(m, 1)
+    @test nobs(m) == 4
+
+    println(stats(m))
+    @test mean.(m.class_trackers) == [0.5, 0.25, 0.25]
+
+    m = AdaptiveMultinomial(3)
+    #start with uniform distribution
+    for i in 1:999
+        fit!(m, mod1(i,3))
+    end
+    @test mean.(m.class_trackers) ≈ [1/3, 1/3, 1/3]
+    @test nobs(m) == 999
+    # now shift to a non-uniform distribution
+    for i in 1:1000
+        fit!(m, mod1(i % 4, 3))
+    end
+    # check if it shifted
+    @test nobs(m) <= 1000
+    for class_tracker in m.class_trackers
+        @test nobs(class_tracker) == nobs(m)
+    end
+    @test mean.(m.class_trackers) |> sum ≈ 1
+end

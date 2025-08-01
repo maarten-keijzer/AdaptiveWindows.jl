@@ -4,6 +4,7 @@ authors = ["Maarten Keijzer <maarten.keijzer@gmail.com>"]
 version = "0.1.2"
 
 [deps]
+HypothesisTests = "09f84164-cd44-5f33-b23f-e6b0d136a0d5"
 OnlineStatsBase = "925886fa-5bf2-5e8e-b522-a9147a512338"
 StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 

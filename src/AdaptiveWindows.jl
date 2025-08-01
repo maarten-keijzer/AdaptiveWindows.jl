@@ -1,8 +1,8 @@
 module AdaptiveWindows
 
 export AdaptiveMean, fit!, value, mean, nobs, stats, withoutdropping, withmaxlength
-
-import StatsBase: nobs, fit!, merge!
+export AdaptiveMultinomial
+import StatsBase: nobs, fit!, merge!, var, mean
 import OnlineStatsBase: value, OnlineStat, Variance, Mean, _fit!
 
 #=
@@ -12,6 +12,8 @@ import OnlineStatsBase: value, OnlineStat, Variance, Mean, _fit!
     If the population is determined to be changed, older observations will be dropped
 
   Bifet and Gavalda. Learning from Time-Changing Data with Adaptive Windowing
+
+  It is assumed that values are between 0 and 1 (TODO)
 =#
 
     # Bifet and Gavalda: We use, somewhat arbitrarily, M = 5 for all experiments.
@@ -33,16 +35,22 @@ import OnlineStatsBase: value, OnlineStat, Variance, Mean, _fit!
         
         onshiftdetect
 
-        AdaptiveMean(;δ = 0.001, onshiftdetected = identity) = new(δ, [Variance() for _ in 1:M], Variance(), onshiftdetected)    
+        AdaptiveMean(;δ = 0.001, onshiftdetected = noaction) = new(δ, [Variance() for _ in 1:M], Variance(), onshiftdetected)    
     end
+
+    noaction(ad, idx) = nothing
 
     function _fit!(ad::AdaptiveMean, value)
         fit!(ad.window[1], value)
         fit!(ad.stats, value)
     
         compress!(ad)
-        if dropifdrifting!(ad)
-            ad.onshiftdetect(ad)
+        idx = dropifdrifting!(ad)
+        if idx > 0
+            ad.onshiftdetect(ad, idx)
+        end
+        if idx > 0
+            drop!(ad, idx)
         end
         ad
     end
@@ -132,46 +140,60 @@ import OnlineStatsBase: value, OnlineStat, Variance, Mean, _fit!
     end
 
     function dropifdrifting!(ad::AdaptiveMean)
-    
         statsToRight = tomean(ad.stats)
         statsToLeft = Mean()
     
         deltaPrime = ad.δ / log(nobs(ad.stats))
+        
         logDeltaPrime = log(2/deltaPrime)
-        variance = value(ad.stats)
+        variance = var(ad.stats)
     
-        for i in 2:length(ad.window)
+
+        for i in 1:length(ad.window)
             if nobs(ad.window[i]) == 0
                 continue
             end
     
             _remove!(statsToRight, ad.window[i])
             _merge!(statsToLeft, ad.window[i])
-    
-            if statsToRight.n < 1e-9
+            
+            if statsToRight.n == 0
                 break # only zeros from this point on
             end
     
             mInv = 1.0/ statsToRight.n + 1.0/ statsToLeft.n;
     
+            # Less sensitive version:
+            # epsCutOrg = sqrt(2 * mInv * log(4/deltaPrime))
+
             epsCut =sqrt(2 * mInv * variance * logDeltaPrime) + 2.0/3.0 * mInv * logDeltaPrime;
-    
+            
             if abs(statsToRight.μ - statsToLeft.μ) > epsCut
-                # Drift detected, clear all from here on
-                for j = i+1:length(ad.window)
-                    ad.window[j] = Variance()
-                end
-                ad.stats = Variance()
-                for stat in 1:i
-                    merge!(ad.stats, ad.window[stat])
-                end
-                return true
+                #println("Cut ", epsCut, " ", statsToRight, " ", statsToLeft)
+                #println("Variance: ", variance)
+
+                drop!(ad, i)
+
+                #println(ad.stats)   
+
+                return i
             end
         end
     
-        return false
+        return 0
     end
     
+    function drop!(ad::AdaptiveMean, i::Int)
+        # Drift detected, clear all from here on
+        for j = i+1:length(ad.window)
+            ad.window[j] = Variance()
+        end
+        ad.stats = Variance()
+        for stat in 1:i
+            merge!(ad.stats, ad.window[stat])
+        end
+    end
+
     struct NoDropWrapper <: AdaptiveBase
         ad::AdaptiveBase
     end
@@ -217,6 +239,54 @@ import OnlineStatsBase: value, OnlineStat, Variance, Mean, _fit!
 
     for fun in (:nobs, :value, :stats, :mean)
         @eval ($fun)(x::MaxLength, args...) = ($fun(x.ad, args...))
+    end
+
+
+    struct AdaptiveMultinomial <: AdaptiveBase
+        error_tracker::AdaptiveBase
+        class_trackers::Vector{AdaptiveBase}
+    end
+
+    """
+        Creates a variant of an AdaptiveMean that updates (fit!) an AdaptiveMean and prevents
+        statistical tests being performed while updating the data to improve performance. 
+    """
+    function AdaptiveMultinomial(nclasses::Int;δ = 0.001) 
+        class_trackers = [withoutdropping(AdaptiveMean()) for _ in 1:nclasses]
+        error_tracker = AdaptiveMean(δ = δ, onshiftdetected = sync_if_shifted(class_trackers))
+        AdaptiveMultinomial(error_tracker, class_trackers)
+    end
+
+    function sync_if_shifted(class_trackers)
+        (_, idx) -> begin 
+            for class_tracker in class_trackers
+                drop!(class_tracker.ad, idx)
+            end
+        end
+    end
+
+    function _fit!(mnAdWin::AdaptiveMultinomial, class_value::Int)
+        @assert 0 < class_value <= length(mnAdWin.class_trackers)
+        
+        nats = 0.0;
+        for i in eachindex(mnAdWin.class_trackers)
+            if i == class_value
+                mn = mean(mnAdWin.class_trackers[i])
+                if 0.0 < mn < 1.0
+                    nats -= log(mn)
+                end
+                fit!(mnAdWin.class_trackers[i], 1.0)
+            else
+                fit!(mnAdWin.class_trackers[i], 0.0)
+            end
+        end
+        # track cross entropy of the class distribution
+        fit!(mnAdWin.error_tracker, nats)
+        
+    end
+
+    for fun in (:nobs, :value, :stats, :mean)
+        @eval ($fun)(x::AdaptiveMultinomial, args...) = ($fun(x.error_tracker, args...))
     end
 
 
