@@ -1,6 +1,7 @@
 
 using AdaptiveWindows
 using Test
+using Distributions
 
 @testset verbose=true "Adaptive Mean" begin
 
@@ -88,40 +89,60 @@ using Test
         fit!(mn, rand(10000))
         @test length(mn.ad.window) == AdaptiveWindows.M * 3
         @test consistent(mn.ad)
-        
-
     end
+    
 end
 
-@testset verbose=true "Adaptive Multinomial" begin
-    m = AdaptiveMultinomial(3)
-    fit!(m, 1)
+@testset verbose=true "Synced AdWin" begin
+    m = SyncedAdaptiveMean(3)
+    fit!(m, [1, 0, 0])
     @test nobs(m) == 1
-    fit!(m, 2)
+    fit!(m, [0, 1, 0])
     @test nobs(m) == 2
-    fit!(m, 3)
+    fit!(m, [0, 0, 1])
     @test nobs(m) == 3
-    fit!(m, 1)
+    fit!(m, [1, 0, 0])
     @test nobs(m) == 4
 
-    println(stats(m))
-    @test mean.(m.class_trackers) == [0.5, 0.25, 0.25]
+    @test mean.(m.adwins) == [0.5, 0.25, 0.25]
 
-    m = AdaptiveMultinomial(3)
+    m = SyncedAdaptiveMean(3)
     #start with uniform distribution
     for i in 1:999
-        fit!(m, mod1(i,3))
+        vals = zeros(3)
+        vals[mod1(i, 3)] = 1
+        fit!(m, vals)
     end
-    @test mean.(m.class_trackers) ≈ [1/3, 1/3, 1/3]
+    @test mean.(m.adwins) ≈ [1/3, 1/3, 1/3]
     @test nobs(m) == 999
     # now shift to a non-uniform distribution
-    for i in 1:1000
-        fit!(m, mod1(i % 4, 3))
+    for i in 1:10000
+        vals = zeros(3)
+        vals[mod1(i % 4, 3)] = 1
+        fit!(m, vals)
+        @test mean.(m.adwins) |> sum ≈ 1
     end
     # check if it shifted
-    @test nobs(m) <= 1000
-    for class_tracker in m.class_trackers
-        @test nobs(class_tracker) == nobs(m)
+    @test nobs(m) <= 10000
+    for adwin in m.adwins
+        @test nobs(adwin) == nobs(m)
     end
-    @test mean.(m.class_trackers) |> sum ≈ 1
+    @test mean.(m.adwins) |> sum ≈ 1
+
+
+    m = SyncedAdaptiveMean(2)
+
+    for i in 1:20000
+        prob = [sin(i/10000 * 2π)^2, cos(i/10000 * 2π)^2]
+        prob = prob ./ sum(prob)
+        class = rand(Categorical(prob))
+        res = zeros(2)
+        res[class] = 1.0
+        fit!(m, res)
+
+        @test mean.(m.adwins) |> sum ≈ 1
+
+    end
+
 end
+

@@ -1,7 +1,8 @@
 module AdaptiveWindows
 
-export AdaptiveMean, fit!, value, mean, nobs, stats, withoutdropping, withmaxlength
-export AdaptiveMultinomial
+export AdaptiveMean, SyncedAdaptiveMean 
+export fit!, value, mean, nobs, stats, withoutdropping, withmaxlength
+
 import StatsBase: nobs, fit!, merge!, var, mean
 import OnlineStatsBase: value, OnlineStat, Variance, Mean, _fit!
 
@@ -46,14 +47,15 @@ import OnlineStatsBase: value, OnlineStat, Variance, Mean, _fit!
     
         compress!(ad)
         idx = dropifdrifting!(ad)
-        if idx > 0
+        if idx < typemax(Int)
             ad.onshiftdetect(ad, idx)
         end
-        if idx > 0
+        if idx < typemax(Int)
             drop!(ad, idx)
         end
         ad
     end
+
 
     nobs(ad::AdaptiveMean) = ad.stats.n
     stats(ad::AdaptiveMean) = ad.stats
@@ -180,7 +182,7 @@ import OnlineStatsBase: value, OnlineStat, Variance, Mean, _fit!
             end
         end
     
-        return 0
+        return typemax(Int)
     end
     
     function drop!(ad::AdaptiveMean, i::Int)
@@ -191,6 +193,20 @@ import OnlineStatsBase: value, OnlineStat, Variance, Mean, _fit!
         ad.stats = Variance()
         for stat in 1:i
             merge!(ad.stats, ad.window[stat])
+        end
+    end
+
+    function synchronize_memory(adwins::AdaptiveMean...)
+        for adwin in adwins
+            orgchange = adwin.onshiftdetect
+            adwin.onshiftdetect = (ad, idx) -> begin
+                orgchange(ad, idx)
+                for adwin2 in adwins
+                    if adwin2 !== adwin
+                        drop!(adwin2, idx)
+                    end
+                end
+            end
         end
     end
 
@@ -242,53 +258,101 @@ import OnlineStatsBase: value, OnlineStat, Variance, Mean, _fit!
     end
 
 
-    struct AdaptiveMultinomial <: AdaptiveBase
-        error_tracker::AdaptiveBase
-        class_trackers::Vector{AdaptiveBase}
+    # struct AdaptiveMultinomial <: AdaptiveBase
+    #     error_tracker::AdaptiveBase
+    #     class_trackers::Vector{AdaptiveBase}
+    # end
+
+    # """
+    #     Creates a set of AdWins that tracks the distribution of a class variable.
+    #     The error tracker tracks the cross entropy of the class distribution.
+    #     The class trackers track the mean of the class variable.
+    #     The class trackers are updated with 1.0 if the class variable is the same as the class value,
+    #     and 0.0 otherwise. The probabilities add up to 1.0.
+    #     The error tracker is updated with the negative log of the mean of the class variable.
+
+    #     When the distribution of the loss tracker changes, the class trackers are culled to the same length.
+    # """
+    # function AdaptiveMultinomial(nclasses::Int;δ = 0.001) 
+    #     class_trackers = [withoutdropping(AdaptiveMean()) for _ in 1:nclasses]
+    #     error_tracker = AdaptiveMean(δ = δ, onshiftdetected = sync_if_shifted(class_trackers))
+    #     AdaptiveMultinomial(error_tracker, class_trackers)
+    # end
+
+    # function sync_if_shifted(class_trackers)
+    #     (_, idx) -> begin 
+    #         for class_tracker in class_trackers
+    #             drop!(class_tracker.ad, idx)
+    #         end
+    #     end
+    # end
+
+    # function _fit!(mnAdWin::AdaptiveMultinomial, class_value::Int)
+    #     @assert 0 < class_value <= length(mnAdWin.class_trackers)
+
+    #     nats = 0.0;
+    #     for i in eachindex(mnAdWin.class_trackers)
+    #         if i == class_value
+    #             mn = mean(mnAdWin.class_trackers[i])
+    #             if 0.0 < mn < 1.0
+    #                 nats -= log(mn)
+    #             end
+    #             fit!(mnAdWin.class_trackers[i], 1.0)
+    #         else
+    #             fit!(mnAdWin.class_trackers[i], 0.0)
+    #         end
+    #     end
+    #     # track cross entropy of the class distribution
+    #     fit!(mnAdWin.error_tracker, nats)
+        
+    # end
+
+    # for fun in (:nobs, :value, :stats, :mean)
+    #     @eval ($fun)(x::AdaptiveMultinomial, args...) = ($fun(x.error_tracker, args...))
+    # end
+
+
+    struct SyncedAdaptiveMean <: AdaptiveWindows.AdaptiveBase 
+        adwins::Vector{AdaptiveWindows.AdaptiveMean}
     end
 
-    """
-        Creates a variant of an AdaptiveMean that updates (fit!) an AdaptiveMean and prevents
-        statistical tests being performed while updating the data to improve performance. 
-    """
-    function AdaptiveMultinomial(nclasses::Int;δ = 0.001) 
-        class_trackers = [withoutdropping(AdaptiveMean()) for _ in 1:nclasses]
-        error_tracker = AdaptiveMean(δ = δ, onshiftdetected = sync_if_shifted(class_trackers))
-        AdaptiveMultinomial(error_tracker, class_trackers)
-    end
+    Base.getindex(syncedAdWins::SyncedAdaptiveMean, i::Int) = syncedAdWins.adwins[i]
 
-    function sync_if_shifted(class_trackers)
-        (_, idx) -> begin 
-            for class_tracker in class_trackers
-                drop!(class_tracker.ad, idx)
+    function SyncedAdaptiveMean(nadwins::Int;δ = 0.001, onshiftdetected = noaction) 
+        adwins = [AdaptiveMean(δ = δ, onshiftdetected = onshiftdetected) for _ in 1:nadwins]
+        SyncedAdaptiveMean(adwins)
+    end
+    
+    function fit!(syncedAdWins::SyncedAdaptiveMean, values::Vector{T}) where T <: Number
+        @assert 0 < length(values) <= length(syncedAdWins.adwins)
+    
+        # fit each adwin, but don't drop just yet because windows might get out of sync
+        for i in eachindex(syncedAdWins.adwins)
+            adwin = syncedAdWins.adwins[i] 
+            value = values[i]
+            fit!(adwin.window[1], value)
+            fit!(adwin.stats, value)
+            
+            compress!(adwin)   
+        end
+        
+        # drop to smallest window if any adwin detects a shift
+        idx = typemax(Int)
+        for ad in syncedAdWins.adwins
+            idx = min(idx, dropifdrifting!(ad))
+        end
+
+        if idx < typemax(Int)
+            for ad in syncedAdWins.adwins
+                drop!(ad, idx)
             end
         end
     end
 
-    function _fit!(mnAdWin::AdaptiveMultinomial, class_value::Int)
-        @assert 0 < class_value <= length(mnAdWin.class_trackers)
-        
-        nats = 0.0;
-        for i in eachindex(mnAdWin.class_trackers)
-            if i == class_value
-                mn = mean(mnAdWin.class_trackers[i])
-                if 0.0 < mn < 1.0
-                    nats -= log(mn)
-                end
-                fit!(mnAdWin.class_trackers[i], 1.0)
-            else
-                fit!(mnAdWin.class_trackers[i], 0.0)
-            end
-        end
-        # track cross entropy of the class distribution
-        fit!(mnAdWin.error_tracker, nats)
-        
+    nobs(x::SyncedAdaptiveMean) = nobs(x.adwins[1])
+    for fun in (:value, :stats, :mean)
+        @eval ($fun)(x::SyncedAdaptiveMean) = ($fun.(x.adwins))
     end
-
-    for fun in (:nobs, :value, :stats, :mean)
-        @eval ($fun)(x::AdaptiveMultinomial, args...) = ($fun(x.error_tracker, args...))
-    end
-
-
+    
 end # module
 
