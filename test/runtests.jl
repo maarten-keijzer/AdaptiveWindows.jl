@@ -94,7 +94,7 @@ using Distributions
 end
 
 @testset verbose=true "Synced AdWin" begin
-    m = SyncedAdaptiveMean(3)
+    m = AdWinGroup(3)
     fit!(m, [1, 0, 0])
     @test nobs(m) == 1
     fit!(m, [0, 1, 0])
@@ -106,7 +106,7 @@ end
 
     @test mean.(m.adwins) == [0.5, 0.25, 0.25]
 
-    m = SyncedAdaptiveMean(3)
+    m = AdWinGroup(3)
     #start with uniform distribution
     for i in 1:999
         vals = zeros(3)
@@ -129,8 +129,7 @@ end
     end
     @test mean.(m.adwins) |> sum ≈ 1
 
-
-    m = SyncedAdaptiveMean(2)
+    m = AdWinGroup(2)
 
     for i in 1:20000
         prob = [sin(i/10000 * 2π)^2, cos(i/10000 * 2π)^2]

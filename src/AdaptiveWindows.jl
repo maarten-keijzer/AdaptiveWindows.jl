@@ -1,6 +1,7 @@
 module AdaptiveWindows
 
-export AdaptiveMean, SyncedAdaptiveMean 
+export AdWin, AdWinGroup
+export AdaptiveMean # backward compatibility
 export fit!, value, mean, nobs, stats, withoutdropping, withmaxlength
 
 import StatsBase: nobs, fit!, merge!, var, mean
@@ -28,7 +29,7 @@ import OnlineStatsBase: value, OnlineStat, Variance, Mean, _fit!
         assesses if older events are drawn from a different distribution than new events,
         i.e., did the distribution shift?
     """
-    mutable struct AdaptiveMean <: AdaptiveBase
+    mutable struct AdWin <: AdaptiveBase
         
         δ ::Float64
         window::Vector{Variance}
@@ -36,12 +37,13 @@ import OnlineStatsBase: value, OnlineStat, Variance, Mean, _fit!
         
         onshiftdetect
 
-        AdaptiveMean(;δ = 0.001, onshiftdetected = noaction) = new(δ, [Variance() for _ in 1:M], Variance(), onshiftdetected)    
+        AdWin(;δ = 0.001, onshiftdetected = noaction) = new(δ, [Variance() for _ in 1:M], Variance(), onshiftdetected)    
     end
+    AdaptiveMean = AdWin
 
     noaction(ad, idx) = nothing
 
-    function _fit!(ad::AdaptiveMean, value)
+    function _fit!(ad::AdWin, value)
         fit!(ad.window[1], value)
         fit!(ad.stats, value)
     
@@ -57,18 +59,18 @@ import OnlineStatsBase: value, OnlineStat, Variance, Mean, _fit!
     end
 
 
-    nobs(ad::AdaptiveMean) = ad.stats.n
-    stats(ad::AdaptiveMean) = ad.stats
+    nobs(ad::AdWin) = ad.stats.n
+    stats(ad::AdWin) = ad.stats
 
-    function mean(ad::AdaptiveMean)
+    function mean(ad::AdWin)
         ad.stats.μ
     end
 
-    function value(ad::AdaptiveMean)
+    function value(ad::AdWin)
         mean(ad)
     end
                 
-    function compress!(ad::AdaptiveMean)
+    function compress!(ad::AdWin)
         makespace!(ad, 1, 1.0);
     end
     
@@ -79,7 +81,7 @@ import OnlineStatsBase: value, OnlineStat, Variance, Mean, _fit!
         println("stats: ", nobs(m.stats))
     end    
 
-    function makespace!(ad::AdaptiveMean, start::Int, max::Float64)
+    function makespace!(ad::AdWin, start::Int, max::Float64)
     #=
         The window is a gappy list of data points, this avoids allocations and reallocations 
         when the window resizes
@@ -141,7 +143,7 @@ import OnlineStatsBase: value, OnlineStat, Variance, Mean, _fit!
         merge!(m, tomean(v))
     end
 
-    function dropifdrifting!(ad::AdaptiveMean)
+    function dropifdrifting!(ad::AdWin)
         statsToRight = tomean(ad.stats)
         statsToLeft = Mean()
     
@@ -185,7 +187,7 @@ import OnlineStatsBase: value, OnlineStat, Variance, Mean, _fit!
         return typemax(Int)
     end
     
-    function drop!(ad::AdaptiveMean, i::Int)
+    function drop!(ad::AdWin, i::Int)
         # Drift detected, clear all from here on
         for j = i+1:length(ad.window)
             ad.window[j] = Variance()
@@ -196,7 +198,7 @@ import OnlineStatsBase: value, OnlineStat, Variance, Mean, _fit!
         end
     end
 
-    function synchronize_memory(adwins::AdaptiveMean...)
+    function synchronize_memory(adwins::AdWin...)
         for adwin in adwins
             orgchange = adwin.onshiftdetect
             adwin.onshiftdetect = (ad, idx) -> begin
@@ -312,18 +314,18 @@ import OnlineStatsBase: value, OnlineStat, Variance, Mean, _fit!
     # end
 
 
-    struct SyncedAdaptiveMean <: AdaptiveWindows.AdaptiveBase 
-        adwins::Vector{AdaptiveWindows.AdaptiveMean}
+    struct AdWinGroup <: AdaptiveWindows.AdaptiveBase 
+        adwins::Vector{AdaptiveWindows.AdWin}
     end
 
-    Base.getindex(syncedAdWins::SyncedAdaptiveMean, i::Int) = syncedAdWins.adwins[i]
+    Base.getindex(syncedAdWins::AdWinGroup, i::Int) = syncedAdWins.adwins[i]
 
-    function SyncedAdaptiveMean(nadwins::Int;δ = 0.001, onshiftdetected = noaction) 
-        adwins = [AdaptiveMean(δ = δ, onshiftdetected = onshiftdetected) for _ in 1:nadwins]
-        SyncedAdaptiveMean(adwins)
+    function AdWinGroup(nadwins::Int;δ = 0.001, onshiftdetected = noaction) 
+        adwins = [AdWin(δ = δ, onshiftdetected = onshiftdetected) for _ in 1:nadwins]
+        AdWinGroup(adwins)
     end
     
-    function fit!(syncedAdWins::SyncedAdaptiveMean, values::Vector{T}) where T <: Number
+    function fit!(syncedAdWins::AdWinGroup, values::Vector{T}; check_shift = true) where T <: Number
         @assert 0 < length(values) <= length(syncedAdWins.adwins)
     
         # fit each adwin, but don't drop just yet because windows might get out of sync
@@ -336,22 +338,24 @@ import OnlineStatsBase: value, OnlineStat, Variance, Mean, _fit!
             compress!(adwin)   
         end
         
+        if check_shift
         # drop to smallest window if any adwin detects a shift
-        idx = typemax(Int)
-        for ad in syncedAdWins.adwins
-            idx = min(idx, dropifdrifting!(ad))
-        end
-
-        if idx < typemax(Int)
+            idx = typemax(Int)
             for ad in syncedAdWins.adwins
-                drop!(ad, idx)
+                idx = min(idx, dropifdrifting!(ad))
+            end
+
+            if idx < typemax(Int)
+                for ad in syncedAdWins.adwins
+                    drop!(ad, idx)
+                end
             end
         end
     end
 
-    nobs(x::SyncedAdaptiveMean) = nobs(x.adwins[1])
+    nobs(x::AdWinGroup) = nobs(x.adwins[1])
     for fun in (:value, :stats, :mean)
-        @eval ($fun)(x::SyncedAdaptiveMean) = ($fun.(x.adwins))
+        @eval ($fun)(x::AdWinGroup) = ($fun.(x.adwins))
     end
     
 end # module
