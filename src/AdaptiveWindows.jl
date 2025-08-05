@@ -2,7 +2,7 @@ module AdaptiveWindows
 
 export AdWin, AdWinGroup
 export AdaptiveMean # backward compatibility
-export fit!, value, mean, nobs, stats, withoutdropping, withmaxlength, update!
+export fit!, value, mean, nobs, stats, withoutdropping, withmaxlength, update_no_check!
 
 import StatsBase: nobs, fit!, merge!, var, mean
 import OnlineStatsBase: value, OnlineStat, Variance, Mean, _fit!
@@ -43,7 +43,7 @@ import OnlineStatsBase: value, OnlineStat, Variance, Mean, _fit!
 
     noaction(ad, idx) = nothing
 
-    function fit!(ad::AdWin, value)
+    function _fit!(ad::AdWin, value)
         fit!(ad.window[1], value)
         fit!(ad.stats, value)
     
@@ -58,7 +58,7 @@ import OnlineStatsBase: value, OnlineStat, Variance, Mean, _fit!
         ad
     end
 
-    function update!(ad::AdWin, value)
+    function update_no_check!(ad::AdWin, value)
         fit!(ad.window[1], value)
         fit!(ad.stats, value)
         compress!(ad)
@@ -198,19 +198,6 @@ import OnlineStatsBase: value, OnlineStat, Variance, Mean, _fit!
         end
     end
 
-    function synchronize_memory(adwins::AdWin...)
-        for adwin in adwins
-            orgchange = adwin.onshiftdetect
-            adwin.onshiftdetect = (ad, idx) -> begin
-                orgchange(ad, idx)
-                for adwin2 in adwins
-                    if adwin2 !== adwin
-                        drop!(adwin2, idx)
-                    end
-                end
-            end
-        end
-    end
 
     struct NoDropWrapper <: AdaptiveBase
         ad::AdaptiveBase
