@@ -2,7 +2,7 @@ module AdaptiveWindows
 
 export AdWin, AdWinGroup
 export AdaptiveMean # backward compatibility
-export fit!, value, mean, nobs, stats, withoutdropping, withmaxlength
+export fit!, value, mean, nobs, stats, withoutdropping, withmaxlength, update!
 
 import StatsBase: nobs, fit!, merge!, var, mean
 import OnlineStatsBase: value, OnlineStat, Variance, Mean, _fit!
@@ -43,12 +43,12 @@ import OnlineStatsBase: value, OnlineStat, Variance, Mean, _fit!
 
     noaction(ad, idx) = nothing
 
-    function _fit!(ad::AdWin, value)
+    function fit!(ad::AdWin, value)
         fit!(ad.window[1], value)
         fit!(ad.stats, value)
     
         compress!(ad)
-        idx = dropifdrifting!(ad)
+        idx = checkifdrifting(ad)
         if idx < typemax(Int)
             ad.onshiftdetect(ad, idx)
         end
@@ -58,6 +58,12 @@ import OnlineStatsBase: value, OnlineStat, Variance, Mean, _fit!
         ad
     end
 
+    function update!(ad::AdWin, value)
+        fit!(ad.window[1], value)
+        fit!(ad.stats, value)
+        compress!(ad)
+        ad
+    end
 
     nobs(ad::AdWin) = ad.stats.n
     stats(ad::AdWin) = ad.stats
@@ -143,7 +149,7 @@ import OnlineStatsBase: value, OnlineStat, Variance, Mean, _fit!
         merge!(m, tomean(v))
     end
 
-    function dropifdrifting!(ad::AdWin)
+    function checkifdrifting(ad::AdWin)
         statsToRight = tomean(ad.stats)
         statsToLeft = Mean()
     
@@ -173,13 +179,7 @@ import OnlineStatsBase: value, OnlineStat, Variance, Mean, _fit!
             epsCut =sqrt(2 * mInv * variance * logDeltaPrime) + 2.0/3.0 * mInv * logDeltaPrime;
             
             if abs(statsToRight.μ - statsToLeft.μ) > epsCut
-                #println("Cut ", epsCut, " ", statsToRight, " ", statsToLeft)
-                #println("Variance: ", variance)
-
-                drop!(ad, i)
-
-                #println(ad.stats)   
-
+                # return the index of the first window to drop
                 return i
             end
         end
@@ -342,7 +342,7 @@ import OnlineStatsBase: value, OnlineStat, Variance, Mean, _fit!
         # drop to smallest window if any adwin detects a shift
             idx = typemax(Int)
             for ad in syncedAdWins.adwins
-                idx = min(idx, dropifdrifting!(ad))
+                idx = min(idx, checkifdrifting(ad))
             end
 
             if idx < typemax(Int)
