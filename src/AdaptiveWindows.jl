@@ -88,22 +88,6 @@ import OnlineStatsBase: value, OnlineStat, Variance, Mean, _fit!
     end    
 
     function makespace!(ad::AdWin, start::Int, max::Float64)
-    #=
-        The window is a gappy list of data points, this avoids allocations and reallocations 
-        when the window resizes
-    
-        Assume M = 3, the lists below show the counts of observations
-    
-            Entry: [1, 0, 0],               Exit: [0, 1, 0]
-            Entry: [1, 1, 0],               Exit: [0, 1, 1]
-            Entry: [1, 1, 1],               Exit: [0, 1, 1, 1, 0, 0]
-            Entry [1, 1, 1, 1, 0, 0],       Exit: [0, 1, 1, 0, 2, 0]
-            Entry [1, 1, 1, 0, 2, 0],       Exit: [0, 1, 1, 1, 2, 0]
-            Entry [1, 1, 1, 1, 2, 0],       Exit: [0, 1, 1, 0, 2, 2]
-            Entry [1, 1, 1, 0, 2, 2],       Exit: [0, 1, 1, 1, 2, 2]
-            Entry [1, 1, 1, 1, 2, 2],       Exit: [0, 1, 1, 0, 2, 2, 2, 0, 0]
-    
-    =#
     
         if nobs(ad.window[start]) < max
             return
@@ -245,60 +229,6 @@ import OnlineStatsBase: value, OnlineStat, Variance, Mean, _fit!
     for fun in (:nobs, :value, :stats, :mean)
         @eval ($fun)(x::MaxLength, args...) = ($fun(x.ad, args...))
     end
-
-
-    # struct AdaptiveMultinomial <: AdaptiveBase
-    #     error_tracker::AdaptiveBase
-    #     class_trackers::Vector{AdaptiveBase}
-    # end
-
-    # """
-    #     Creates a set of AdWins that tracks the distribution of a class variable.
-    #     The error tracker tracks the cross entropy of the class distribution.
-    #     The class trackers track the mean of the class variable.
-    #     The class trackers are updated with 1.0 if the class variable is the same as the class value,
-    #     and 0.0 otherwise. The probabilities add up to 1.0.
-    #     The error tracker is updated with the negative log of the mean of the class variable.
-
-    #     When the distribution of the loss tracker changes, the class trackers are culled to the same length.
-    # """
-    # function AdaptiveMultinomial(nclasses::Int;δ = 0.001) 
-    #     class_trackers = [withoutdropping(AdaptiveMean()) for _ in 1:nclasses]
-    #     error_tracker = AdaptiveMean(δ = δ, onshiftdetected = sync_if_shifted(class_trackers))
-    #     AdaptiveMultinomial(error_tracker, class_trackers)
-    # end
-
-    # function sync_if_shifted(class_trackers)
-    #     (_, idx) -> begin 
-    #         for class_tracker in class_trackers
-    #             drop!(class_tracker.ad, idx)
-    #         end
-    #     end
-    # end
-
-    # function _fit!(mnAdWin::AdaptiveMultinomial, class_value::Int)
-    #     @assert 0 < class_value <= length(mnAdWin.class_trackers)
-
-    #     nats = 0.0;
-    #     for i in eachindex(mnAdWin.class_trackers)
-    #         if i == class_value
-    #             mn = mean(mnAdWin.class_trackers[i])
-    #             if 0.0 < mn < 1.0
-    #                 nats -= log(mn)
-    #             end
-    #             fit!(mnAdWin.class_trackers[i], 1.0)
-    #         else
-    #             fit!(mnAdWin.class_trackers[i], 0.0)
-    #         end
-    #     end
-    #     # track cross entropy of the class distribution
-    #     fit!(mnAdWin.error_tracker, nats)
-        
-    # end
-
-    # for fun in (:nobs, :value, :stats, :mean)
-    #     @eval ($fun)(x::AdaptiveMultinomial, args...) = ($fun(x.error_tracker, args...))
-    # end
 
 
     struct AdWinGroup <: AdaptiveWindows.AdaptiveBase 
